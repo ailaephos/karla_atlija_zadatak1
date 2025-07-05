@@ -66,3 +66,23 @@ async def fetch_tickets(redis_client: redis.Redis, page: int = 1, page_size: int
             tickets.append(ticket)
 
         return tickets
+
+async def get_ticket_by_id(ticket_id: int, redis_client: redis.Redis) -> Ticket | None:
+    async with AsyncClient() as client:
+        response = await client.get(f"{TODOS_API_URL}/{ticket_id}")
+        if response.status_code != 200:
+            return None
+
+        todo = response.json()
+        user_map = await fetch_users(redis_client)
+
+        assignee = user_map.get(todo["userId"], "unknown")
+        return Ticket(
+            id=todo["id"],
+            title=todo["todo"],
+            status="closed" if todo["completed"] else "open",
+            priority=["low", "medium", "high"][todo["id"] % 3],
+            description=todo["todo"][:100],
+            assignee=assignee
+        )
+    
